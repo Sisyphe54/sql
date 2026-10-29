@@ -1,0 +1,1416 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>供应链 SQL 数据分析项目</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;background:#f5f5f5;color:#333;line-height:1.6}
+.sidebar{position:fixed;left:0;top:0;width:220px;height:100vh;background:#1e293b;color:#fff;overflow-y:auto;z-index:100}
+.sidebar-header{padding:24px 20px;border-bottom:1px solid #334155}
+.sidebar-header h1{font-size:16px;font-weight:700}
+.sidebar-header p{font-size:12px;color:#94a3b8;margin-top:4px}
+.nav{padding:12px 0}
+.nav-item{display:flex;align-items:center;gap:10px;padding:12px 20px;font-size:14px;color:#cbd5e1;cursor:pointer;transition:.2s;border:none;background:none;width:100%;text-align:left}
+.nav-item:hover{color:#fff;background:#334155}
+.nav-item.active{color:#fff;background:#2563eb;font-weight:500}
+.nav-icon{width:18px;height:18px}
+.sidebar-footer{padding:16px 20px;border-top:1px solid #334155;margin-top:auto}
+.sidebar-footer .tags{display:flex;flex-wrap:wrap;gap:6px}
+.sidebar-footer .tag{font-size:11px;padding:3px 8px;background:#334155;border-radius:4px;color:#94a3b8}
+.main{margin-left:220px;min-height:100vh}
+.header{background:#fff;border-bottom:1px solid #e5e7eb;padding:16px 32px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:50}
+.header h2{font-size:18px;font-weight:600}
+.header-links{display:flex;gap:16px}
+.header-links a{font-size:14px;color:#64748b;text-decoration:none}
+.header-links a:hover{color:#1e293b}
+.content{padding:32px;max-width:1200px}
+.section{display:none}
+.section.active{display:block}
+
+/* Hero */
+.hero{background:linear-gradient(135deg,#1e293b 0%,#334155 100%);color:#fff;padding:40px;border-radius:12px;margin-bottom:24px}
+.hero h1{font-size:28px;margin-bottom:12px}
+.hero p{color:#cbd5e1;font-size:15px;max-width:700px;line-height:1.8}
+.hero-tags{display:flex;flex-wrap:wrap;gap:8px;margin-top:20px}
+.hero-tag{font-size:13px;padding:5px 12px;background:rgba(255,255,255,.1);border-radius:20px}
+
+/* Cards */
+.cards-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px}
+.card{background:#fff;border-radius:10px;padding:20px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.card-icon{width:40px;height:40px;border-radius:8px;display:flex;align-items:center;justify-content:center;margin-bottom:12px;font-size:18px}
+.card-icon.blue{background:#dbeafe;color:#2563eb}
+.card-icon.green{background:#d1fae5;color:#059669}
+.card-icon.orange{background:#ffedd5;color:#d97706}
+.card-icon.red{background:#fee2e2;color:#dc2626}
+.card-value{font-size:24px;font-weight:700;color:#1e293b}
+.card-label{font-size:13px;color:#64748b;margin-top:4px}
+.card-desc{font-size:12px;color:#94a3b8;margin-top:2px}
+
+/* Chart containers */
+.chart-card{background:#fff;border-radius:10px;padding:20px;margin-bottom:20px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.chart-card h3{font-size:15px;font-weight:600;margin-bottom:12px;color:#1e293b}
+.chart-container{width:100%;height:320px}
+.chart-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(450px,1fr));gap:20px}
+
+/* Table */
+.table-card{background:#fff;border-radius:10px;padding:20px;box-shadow:0 1px 3px rgba(0,0,0,.08);overflow-x:auto}
+.table-card h3{font-size:15px;font-weight:600;margin-bottom:12px;color:#1e293b}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:10px 12px;border-bottom:2px solid #e5e7eb;color:#64748b;font-weight:500;white-space:nowrap}
+td{padding:10px 12px;border-bottom:1px solid #f1f5f9}
+tr:hover{background:#f8fafc}
+td.num{text-align:right;font-variant-numeric:tabular-nums}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:12px;font-size:12px;font-weight:500}
+.badge-red{background:#fee2e2;color:#dc2626}
+.badge-green{background:#d1fae5;color:#059669}
+.badge-amber{background:#fef3c7;color:#d97706}
+.badge-purple{background:#f3e8ff;color:#9333ea}
+.badge-slate{background:#f1f5f9;color:#475569}
+
+/* SQL Code block */
+.sql-block{margin:16px 0;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;background:#fafafa}
+.sql-header{display:flex;justify-content:space-between;align-items:center;padding:10px 16px;background:#f1f5f9;border-bottom:1px solid #e5e7eb;cursor:pointer}
+.sql-title{font-size:13px;font-weight:500;color:#475569}
+.sql-toggle{font-size:12px;color:#64748b}
+.sql-content{display:none;padding:16px;overflow-x:auto}
+.sql-content.open{display:block}
+.sql-content pre{font-family:"SF Mono",Monaco,monospace;font-size:12px;line-height:1.7;color:#334155;white-space:pre-wrap;word-break:break-word}
+.sql-copy{float:right;font-size:12px;padding:4px 10px;background:#fff;border:1px solid #d1d5db;border-radius:4px;cursor:pointer;color:#475569}
+.sql-copy:hover{background:#f9fafb}
+
+/* Info cards */
+.info-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin:20px 0}
+.info-card{background:#fff;border-radius:10px;padding:20px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.info-card h4{font-size:14px;font-weight:600;margin-bottom:8px;color:#1e293b}
+.info-card p{font-size:13px;color:#64748b;line-height:1.7}
+
+/* Footer */
+.footer{text-align:center;padding:24px;color:#94a3b8;font-size:13px;border-top:1px solid #e5e7eb;margin-top:40px}
+
+@media(max-width:768px){
+.sidebar{width:100%;height:auto;position:relative}
+.main{margin-left:0}
+.content{padding:16px}
+.chart-grid{grid-template-columns:1fr}
+.header{padding:12px 16px}
+}
+</style>
+</head>
+<body>
+<div class="sidebar">
+<div class="sidebar-header">
+<h1>供应链 SQL 分析</h1>
+<p>JD 采销岗数据作品集</p>
+</div>
+<div class="nav">
+<button class="nav-item active" onclick="showSection('home')">
+<span class="nav-icon">&#8962;</span> 项目概览
+</button>
+<button class="nav-item" onclick="showSection('trend')">
+<span class="nav-icon">&#9733;</span> 销售趋势
+</button>
+<button class="nav-item" onclick="showSection('supplier')">
+<span class="nav-icon">&#9992;</span> 供应商绩效
+</button>
+<button class="nav-item" onclick="showSection('inventory')">
+<span class="nav-icon">&#9874;</span> 库存诊断
+</button>
+</div>
+<div class="sidebar-footer">
+<div style="font-size:12px;color:#94a3b8;margin-bottom:8px">技术栈</div>
+<div class="tags">
+<span class="tag">MySQL</span>
+<span class="tag">CTE</span>
+<span class="tag">窗口函数</span>
+<span class="tag">JOIN</span>
+</div>
+</div>
+</div>
+
+<div class="main">
+<div class="header">
+<h2 id="page-title">项目概览</h2>
+<div class="header-links">
+<a href="https://github.com" target="_blank">GitHub</a>
+<a href="#">简历</a>
+</div>
+</div>
+
+<div class="content">
+
+<!-- HOME -->
+<div id="home" class="section active">
+<div class="hero">
+<h1>供应链 SQL 数据分析项目</h1>
+<p>本项目基于真实业务场景，使用 MySQL 对 JD 采销岗供应链数据进行深度分析。涵盖销售趋势洞察、供应商绩效评估、库存健康诊断三大模块，所有分析均附带完整 SQL 代码与业务解读。</p>
+<div class="hero-tags">
+<span class="hero-tag">MySQL</span>
+<span class="hero-tag">CTE</span>
+<span class="hero-tag">窗口函数</span>
+<span class="hero-tag">JOIN</span>
+<span class="hero-tag">CASE WHEN</span>
+<span class="hero-tag">聚合分析</span>
+</div>
+</div>
+
+<div class="cards-grid">
+<div class="card">
+<div class="card-icon blue">&#128202;</div>
+<div class="card-value" id="home-sku-count">--</div>
+<div class="card-label">分析 SKU 数量</div>
+<div class="card-desc">覆盖 5 大品类</div>
+</div>
+<div class="card">
+<div class="card-icon green">&#128176;</div>
+<div class="card-value" id="home-total-gmv">--</div>
+<div class="card-label">Q3 总 GMV</div>
+<div class="card-desc">7-9 月累计销售额</div>
+</div>
+<div class="card">
+<div class="card-icon orange">&#128666;</div>
+<div class="card-value" id="home-supplier-count">--</div>
+<div class="card-label">供应商数量</div>
+<div class="card-desc">季度采购评估</div>
+</div>
+<div class="card">
+<div class="card-icon red">&#9888;</div>
+<div class="card-value" id="home-avg-dos">--</div>
+<div class="card-label">平均可售天数</div>
+<div class="card-desc">基于 30 天日均销量</div>
+</div>
+</div>
+
+<div class="info-grid">
+<div class="info-card">
+<h4>分析一：品类销售趋势</h4>
+<p>按品类维度分析 Q3 销售表现，识别增长品类与下滑品类。使用 GROUP BY + 聚合函数计算月度 GMV 与销量变化。</p>
+</div>
+<div class="info-card">
+<h4>分析二：供应商绩效评估</h4>
+<p>基于准时交货率、良品率、GMV 贡献三个维度构建综合评分模型。使用多层 CTE 与窗口函数实现供应商排名。</p>
+</div>
+<div class="info-card">
+<h4>分析三：库存预警看板</h4>
+<p>通过 30/60/90 天多时间窗口销量对比，计算库存可售天数（DOS），结合趋势信号输出智能补货建议。</p>
+</div>
+</div>
+
+<div class="info-card" style="margin-top:8px">
+<h4>数据集说明</h4>
+<p><strong>products</strong>：30 个 SKU，覆盖家居清洁、家用电器、手机数码、母婴用品、食品饮料 5 个品类<br>
+<strong>sales_daily</strong>：2026年7月1日~9月30日 日粒度销售数据，共 2384 行<br>
+<strong>inventory_latest</strong>：30 个 SKU 在 上海仓/北京仓 的实时库存快照<br>
+<strong>purchase_orders</strong>：120 条采购订单，含预期到货、实际到货、质检次品信息</p>
+</div>
+</div>
+
+<!-- TREND -->
+<div id="trend" class="section">
+<div style="margin-bottom:20px">
+<h2 style="font-size:22px;margin-bottom:8px">Q3 品类销售趋势分析</h2>
+<p style="color:#64748b">基于 2026年7-9月 日销售数据，按品类维度分析 GMV 走势与 TOP SKU 表现</p>
+</div>
+
+<div class="chart-grid">
+<div class="chart-card">
+<h3>品类月度 GMV 对比（万元）</h3>
+<div id="chart-trend-bar" class="chart-container"></div>
+</div>
+<div class="chart-card">
+<h3>品类 GMV 月度走势（万元）</h3>
+<div id="chart-trend-line" class="chart-container"></div>
+</div>
+</div>
+
+<div class="table-card">
+<h3>Q3 TOP 10 SKU 销售排名</h3>
+<table id="table-top-sku">
+<thead><tr><th>排名</th><th>SKU</th><th>商品名称</th><th>品类</th><th class="num">Q3 销量</th><th class="num">Q3 GMV</th></tr></thead>
+<tbody></tbody>
+</table>
+</div>
+
+<div class="sql-block">
+<div class="sql-header" onclick="toggleSql(this)">
+<span class="sql-title">SQL：品类月度 GMV 趋势</span>
+<span class="sql-toggle">展开</span>
+</div>
+<div class="sql-content">
+<button class="sql-copy" onclick="copySql(this)">复制</button>
+<pre>SELECT 
+    p.category,
+    DATE_FORMAT(s.date, '%Y-%m') AS month,
+    SUM(s.qty) AS total_qty,
+    SUM(s.gmv) AS total_gmv,
+    COUNT(DISTINCT s.sku) AS sku_count
+FROM sales_daily s
+JOIN products p ON s.sku = p.sku
+WHERE s.date BETWEEN '2026-07-01' AND '2026-09-30'
+GROUP BY p.category, DATE_FORMAT(s.date, '%Y-%m')
+ORDER BY p.category, month;</pre>
+</div>
+</div>
+
+<div class="sql-block">
+<div class="sql-header" onclick="toggleSql(this)">
+<span class="sql-title">SQL：Q3 TOP 10 SKU 排名</span>
+<span class="sql-toggle">展开</span>
+</div>
+<div class="sql-content">
+<button class="sql-copy" onclick="copySql(this)">复制</button>
+<pre>SELECT 
+    p.sku,
+    p.sku_name,
+    p.category,
+    SUM(s.qty) AS q3_qty,
+    SUM(s.gmv) AS q3_gmv
+FROM sales_daily s
+JOIN products p ON s.sku = p.sku
+WHERE s.date BETWEEN '2026-07-01' AND '2026-09-30'
+GROUP BY p.sku
+ORDER BY q3_gmv DESC
+LIMIT 10;</pre>
+</div>
+</div>
+</div>
+
+<!-- SUPPLIER -->
+<div id="supplier" class="section">
+<div style="margin-bottom:20px">
+<h2 style="font-size:22px;margin-bottom:8px">供应商绩效评估</h2>
+<p style="color:#64748b">基于准时交货率、良品率、GMV 贡献三个维度构建综合评分模型，输出供应商排名</p>
+</div>
+
+<div class="cards-grid" id="supplier-top3"></div>
+
+<div class="chart-grid">
+<div class="chart-card">
+<h3>供应商综合得分排名</h3>
+<div id="chart-supplier-bar" class="chart-container"></div>
+</div>
+<div class="chart-card">
+<h3>TOP 3 供应商能力雷达图</h3>
+<div id="chart-supplier-radar" class="chart-container"></div>
+</div>
+</div>
+
+<div class="table-card">
+<h3>供应商完整绩效排名</h3>
+<table id="table-supplier">
+<thead><tr><th>排名</th><th>供应商</th><th class="num">SKU数</th><th class="num">订单数</th><th class="num">准时率</th><th class="num">良品率</th><th class="num">Q3 GMV</th><th class="num">GMV占比</th><th class="num">综合得分</th></tr></thead>
+<tbody></tbody>
+</table>
+</div>
+
+<div class="sql-block">
+<div class="sql-header" onclick="toggleSql(this)">
+<span class="sql-title">SQL：供应商综合绩效评估（三层 CTE + 窗口函数）</span>
+<span class="sql-toggle">展开</span>
+</div>
+<div class="sql-content">
+<button class="sql-copy" onclick="copySql(this)">复制</button>
+<pre>WITH supplier_base AS (
+    SELECT 
+        supplier_id,
+        COUNT(DISTINCT sku) AS sku_count,
+        COUNT(*) AS total_orders,
+        ROUND(SUM(CASE WHEN actual_arrival <= expected_arrival THEN 1 ELSE 0 END) 
+              * 100.0 / COUNT(*), 1) AS on_time_rate,
+        ROUND((SUM(qty) - SUM(qc_defect_qty)) * 100.0 / SUM(qty), 1) AS quality_rate
+    FROM purchase_orders
+    GROUP BY supplier_id
+),
+supplier_gmv AS (
+    SELECT p.supplier_id, SUM(s.gmv) AS q3_gmv
+    FROM products p
+    JOIN sales_daily s ON p.sku = s.sku
+    WHERE s.date BETWEEN '2026-07-01' AND '2026-09-30'
+    GROUP BY p.supplier_id
+),
+combined AS (
+    SELECT 
+        b.supplier_id, b.sku_count, b.total_orders,
+        b.on_time_rate, b.quality_rate, g.q3_gmv,
+        ROUND(g.q3_gmv * 100.0 / SUM(g.q3_gmv) OVER(), 1) AS gmv_share_pct,
+        ROUND(b.on_time_rate * 0.40 + b.quality_rate * 0.40 
+              + (g.q3_gmv * 100.0 / SUM(g.q3_gmv) OVER()) * 0.20, 2) AS composite_score
+    FROM supplier_base b
+    JOIN supplier_gmv g ON b.supplier_id = g.supplier_id
+)
+SELECT supplier_id, sku_count, total_orders, on_time_rate, quality_rate,
+       q3_gmv, gmv_share_pct, composite_score,
+       RANK() OVER(ORDER BY composite_score DESC) AS supplier_rank
+FROM combined
+ORDER BY supplier_rank;</pre>
+</div>
+</div>
+</div>
+
+<!-- INVENTORY -->
+<div id="inventory" class="section">
+<div style="margin-bottom:20px">
+<h2 style="font-size:22px;margin-bottom:8px">库存健康诊断看板</h2>
+<p style="color:#64748b">基于 30/60/90 天多时间窗口销量计算 DOS（可售天数），结合趋势信号输出智能补货建议</p>
+</div>
+
+<div class="cards-grid" id="inventory-status-cards"></div>
+
+<div class="chart-grid">
+<div class="chart-card">
+<h3>SKU 库存分布散点图</h3>
+<div id="chart-inventory-scatter" class="chart-container"></div>
+</div>
+<div class="chart-card">
+<h3>库存状态分布</h3>
+<div id="chart-inventory-pie" class="chart-container"></div>
+</div>
+</div>
+
+<div class="table-card">
+<h3>SKU 库存健康诊断明细</h3>
+<table id="table-inventory">
+<thead><tr><th>SKU</th><th>品类</th><th class="num">30天销量</th><th class="num">日均</th><th class="num">库存</th><th class="num">DOS30</th><th>库存状态</th><th>趋势</th><th>建议</th></tr></thead>
+<tbody></tbody>
+</table>
+</div>
+
+<div class="sql-block">
+<div class="sql-header" onclick="toggleSql(this)">
+<span class="sql-title">SQL：多时间窗口销量聚合</span>
+<span class="sql-toggle">展开</span>
+</div>
+<div class="sql-content">
+<button class="sql-copy" onclick="copySql(this)">复制</button>
+<pre>WITH sales_90d AS (
+    SELECT p.sku, COALESCE(SUM(s.qty), 0) AS qty_90d
+    FROM products p
+    LEFT JOIN sales_daily s ON p.sku = s.sku 
+        AND s.date BETWEEN '2026-07-02' AND '2026-09-30'
+    GROUP BY p.sku
+),
+sales_60d AS (
+    SELECT p.sku, COALESCE(SUM(s.qty), 0) AS qty_60d
+    FROM products p
+    LEFT JOIN sales_daily s ON p.sku = s.sku 
+        AND s.date BETWEEN '2026-08-02' AND '2026-09-30'
+    GROUP BY p.sku
+),
+sales_30d AS (
+    SELECT p.sku, COALESCE(SUM(s.qty), 0) AS qty_30d
+    FROM products p
+    LEFT JOIN sales_daily s ON p.sku = s.sku 
+        AND s.date BETWEEN '2026-09-01' AND '2026-09-30'
+    GROUP BY p.sku
+)
+SELECT ... FROM products p
+JOIN sales_90d s90 ON p.sku = s90.sku
+JOIN sales_60d s60 ON p.sku = s60.sku
+JOIN sales_30d s30 ON p.sku = s30.sku;</pre>
+</div>
+</div>
+
+<div class="sql-block">
+<div class="sql-header" onclick="toggleSql(this)">
+<span class="sql-title">SQL：库存状态与趋势判断</span>
+<span class="sql-toggle">展开</span>
+</div>
+<div class="sql-content">
+<button class="sql-copy" onclick="copySql(this)">复制</button>
+<pre>CASE 
+    WHEN avg_daily_30d = 0 AND current_stock > 0 THEN '滞销(有库无销)'
+    WHEN avg_daily_30d = 0 AND current_stock = 0 THEN '断货(无库无销)'
+    WHEN current_stock / avg_daily_30d < 7 THEN '库存不足'
+    WHEN current_stock / avg_daily_30d BETWEEN 7 AND 30 THEN '库存健康'
+    ELSE '库存积压'
+END AS stock_status,
+
+CASE 
+    WHEN avg_daily_30d > avg_daily_60d AND avg_daily_60d > avg_daily_90d THEN '上升趋势'
+    WHEN avg_daily_30d < avg_daily_60d AND avg_daily_60d < avg_daily_90d THEN '下降趋势'
+    ELSE '趋势平稳'
+END AS trend_signal</pre>
+</div>
+</div>
+</div>
+
+<div class="footer">
+供应链 SQL 数据分析项目 · 基于真实业务场景构建 · 所有 SQL 均可复制运行
+</div>
+</div>
+</div>
+
+<script>
+// ================== DATA ==================
+const DATA = {
+  "q3CategoryTrend": [
+    {
+      "category": "家居清洁",
+      "month": "2026-07",
+      "total_qty": 1616,
+      "total_gmv": 182998.0,
+      "sku_count": 6
+    },
+    {
+      "category": "家居清洁",
+      "month": "2026-08",
+      "total_qty": 1748,
+      "total_gmv": 201605.0,
+      "sku_count": 6
+    },
+    {
+      "category": "家居清洁",
+      "month": "2026-09",
+      "total_qty": 1596,
+      "total_gmv": 181697.0,
+      "sku_count": 6
+    },
+    {
+      "category": "家用电器",
+      "month": "2026-07",
+      "total_qty": 856,
+      "total_gmv": 1310469.0,
+      "sku_count": 6
+    },
+    {
+      "category": "家用电器",
+      "month": "2026-08",
+      "total_qty": 921,
+      "total_gmv": 1372215.0,
+      "sku_count": 6
+    },
+    {
+      "category": "家用电器",
+      "month": "2026-09",
+      "total_qty": 855,
+      "total_gmv": 1301282.0,
+      "sku_count": 6
+    },
+    {
+      "category": "手机数码",
+      "month": "2026-07",
+      "total_qty": 1407,
+      "total_gmv": 1955392.0,
+      "sku_count": 6
+    },
+    {
+      "category": "手机数码",
+      "month": "2026-08",
+      "total_qty": 1268,
+      "total_gmv": 1776185.0,
+      "sku_count": 6
+    },
+    {
+      "category": "手机数码",
+      "month": "2026-09",
+      "total_qty": 1362,
+      "total_gmv": 2026142.0,
+      "sku_count": 6
+    },
+    {
+      "category": "母婴用品",
+      "month": "2026-07",
+      "total_qty": 1083,
+      "total_gmv": 291731.0,
+      "sku_count": 6
+    },
+    {
+      "category": "母婴用品",
+      "month": "2026-08",
+      "total_qty": 1115,
+      "total_gmv": 308442.0,
+      "sku_count": 6
+    },
+    {
+      "category": "母婴用品",
+      "month": "2026-09",
+      "total_qty": 1004,
+      "total_gmv": 281210.0,
+      "sku_count": 6
+    },
+    {
+      "category": "食品饮料",
+      "month": "2026-07",
+      "total_qty": 2738,
+      "total_gmv": 245477.0,
+      "sku_count": 6
+    },
+    {
+      "category": "食品饮料",
+      "month": "2026-08",
+      "total_qty": 2755,
+      "total_gmv": 246564.0,
+      "sku_count": 6
+    },
+    {
+      "category": "食品饮料",
+      "month": "2026-09",
+      "total_qty": 2653,
+      "total_gmv": 226876.0,
+      "sku_count": 6
+    }
+  ],
+  "skuQ3Sales": [
+    {
+      "sku": "手机002",
+      "sku_name": "手机数码爆款2号",
+      "category": "手机数码",
+      "q3_qty": 661,
+      "q3_gmv": 1888477.0
+    },
+    {
+      "sku": "手机005",
+      "sku_name": "手机数码爆款5号",
+      "category": "手机数码",
+      "q3_qty": 706,
+      "q3_gmv": 1716992.0
+    },
+    {
+      "sku": "手机001",
+      "sku_name": "手机数码爆款1号",
+      "category": "手机数码",
+      "q3_qty": 656,
+      "q3_gmv": 1098144.0
+    },
+    {
+      "sku": "家用001",
+      "sku_name": "家用电器爆款1号",
+      "category": "家用电器",
+      "q3_qty": 416,
+      "q3_gmv": 1057056.0
+    },
+    {
+      "sku": "家用005",
+      "sku_name": "家用电器爆款5号",
+      "category": "家用电器",
+      "q3_qty": 431,
+      "q3_gmv": 835709.0
+    },
+    {
+      "sku": "家用004",
+      "sku_name": "家用电器爆款4号",
+      "category": "家用电器",
+      "q3_qty": 442,
+      "q3_gmv": 667420.0
+    },
+    {
+      "sku": "家用006",
+      "sku_name": "家用电器爆款6号",
+      "category": "家用电器",
+      "q3_qty": 476,
+      "q3_gmv": 549304.0
+    },
+    {
+      "sku": "手机003",
+      "sku_name": "手机数码爆款3号",
+      "category": "手机数码",
+      "q3_qty": 688,
+      "q3_gmv": 517376.0
+    },
+    {
+      "sku": "家用003",
+      "sku_name": "家用电器爆款3号",
+      "category": "家用电器",
+      "q3_qty": 400,
+      "q3_gmv": 486400.0
+    },
+    {
+      "sku": "家用002",
+      "sku_name": "家用电器爆款2号",
+      "category": "家用电器",
+      "q3_qty": 467,
+      "q3_gmv": 388077.0
+    },
+    {
+      "sku": "手机004",
+      "sku_name": "手机数码爆款4号",
+      "category": "手机数码",
+      "q3_qty": 576,
+      "q3_gmv": 276480.0
+    },
+    {
+      "sku": "母婴006",
+      "sku_name": "母婴用品爆款6号",
+      "category": "母婴用品",
+      "q3_qty": 519,
+      "q3_gmv": 264171.0
+    },
+    {
+      "sku": "手机006",
+      "sku_name": "手机数码爆款6号",
+      "category": "手机数码",
+      "q3_qty": 750,
+      "q3_gmv": 260250.0
+    },
+    {
+      "sku": "食品002",
+      "sku_name": "食品饮料爆款2号",
+      "category": "食品饮料",
+      "q3_qty": 1341,
+      "q3_gmv": 237357.0
+    },
+    {
+      "sku": "家居002",
+      "sku_name": "家居清洁爆款2号",
+      "category": "家居清洁",
+      "q3_qty": 950,
+      "q3_gmv": 181450.0
+    },
+    {
+      "sku": "母婴003",
+      "sku_name": "母婴用品爆款3号",
+      "category": "母婴用品",
+      "q3_qty": 580,
+      "q3_gmv": 172840.0
+    },
+    {
+      "sku": "母婴004",
+      "sku_name": "母婴用品爆款4号",
+      "category": "母婴用品",
+      "q3_qty": 526,
+      "q3_gmv": 163586.0
+    },
+    {
+      "sku": "家居003",
+      "sku_name": "家居清洁爆款3号",
+      "category": "家居清洁",
+      "q3_qty": 828,
+      "q3_gmv": 156492.0
+    },
+    {
+      "sku": "母婴001",
+      "sku_name": "母婴用品爆款1号",
+      "category": "母婴用品",
+      "q3_qty": 566,
+      "q3_gmv": 155084.0
+    },
+    {
+      "sku": "食品006",
+      "sku_name": "食品饮料爆款6号",
+      "category": "食品饮料",
+      "q3_qty": 1410,
+      "q3_gmv": 133950.0
+    },
+    {
+      "sku": "食品001",
+      "sku_name": "食品饮料爆款1号",
+      "category": "食品饮料",
+      "q3_qty": 1303,
+      "q3_gmv": 114664.0
+    },
+    {
+      "sku": "食品005",
+      "sku_name": "食品饮料爆款5号",
+      "category": "食品饮料",
+      "q3_qty": 1304,
+      "q3_gmv": 112144.0
+    },
+    {
+      "sku": "家居004",
+      "sku_name": "家居清洁爆款4号",
+      "category": "家居清洁",
+      "q3_qty": 814,
+      "q3_gmv": 104192.0
+    },
+    {
+      "sku": "母婴002",
+      "sku_name": "母婴用品爆款2号",
+      "category": "母婴用品",
+      "q3_qty": 512,
+      "q3_gmv": 76800.0
+    },
+    {
+      "sku": "家居001",
+      "sku_name": "家居清洁爆款1号",
+      "category": "家居清洁",
+      "q3_qty": 723,
+      "q3_gmv": 76638.0
+    },
+    {
+      "sku": "食品003",
+      "sku_name": "食品饮料爆款3号",
+      "category": "食品饮料",
+      "q3_qty": 1366,
+      "q3_gmv": 71032.0
+    },
+    {
+      "sku": "食品004",
+      "sku_name": "食品饮料爆款4号",
+      "category": "食品饮料",
+      "q3_qty": 1422,
+      "q3_gmv": 49770.0
+    },
+    {
+      "sku": "母婴005",
+      "sku_name": "母婴用品爆款5号",
+      "category": "母婴用品",
+      "q3_qty": 499,
+      "q3_gmv": 48902.0
+    },
+    {
+      "sku": "家居005",
+      "sku_name": "家居清洁爆款5号",
+      "category": "家居清洁",
+      "q3_qty": 793,
+      "q3_gmv": 25376.0
+    },
+    {
+      "sku": "家居006",
+      "sku_name": "家居清洁爆款6号",
+      "category": "家居清洁",
+      "q3_qty": 852,
+      "q3_gmv": 22152.0
+    }
+  ],
+  "supplierPerformance": [
+    {
+      "supplier_id": 1,
+      "sku_count": 6,
+      "total_orders": 29,
+      "on_time_rate": 51.7,
+      "quality_rate": 99.5,
+      "q3_gmv": 5757719.0,
+      "gmv_share_pct": 48.4,
+      "composite_score": 70.15
+    },
+    {
+      "supplier_id": 2,
+      "sku_count": 5,
+      "total_orders": 28,
+      "on_time_rate": 57.1,
+      "quality_rate": 99.4,
+      "q3_gmv": 3983966.0,
+      "gmv_share_pct": 33.5,
+      "composite_score": 69.29
+    },
+    {
+      "supplier_id": 4,
+      "sku_count": 6,
+      "total_orders": 21,
+      "on_time_rate": 52.4,
+      "quality_rate": 99.7,
+      "q3_gmv": 718917.0,
+      "gmv_share_pct": 6.0,
+      "composite_score": 62.05
+    },
+    {
+      "supplier_id": 5,
+      "sku_count": 6,
+      "total_orders": 25,
+      "on_time_rate": 52.0,
+      "quality_rate": 99.7,
+      "q3_gmv": 566300.0,
+      "gmv_share_pct": 4.8,
+      "composite_score": 61.63
+    },
+    {
+      "supplier_id": 3,
+      "sku_count": 6,
+      "total_orders": 17,
+      "on_time_rate": 41.2,
+      "quality_rate": 99.7,
+      "q3_gmv": 881383.0,
+      "gmv_share_pct": 7.4,
+      "composite_score": 57.84
+    }
+  ],
+  "inventoryDashboard": [
+    {
+      "sku": "家居003",
+      "sku_name": "家居清洁爆款3号",
+      "category": "家居清洁",
+      "qty_90d": 828,
+      "avg_daily_90d": 9.2,
+      "qty_60d": 545,
+      "avg_daily_60d": 9.083333333333334,
+      "qty_30d": 246,
+      "avg_daily_30d": 8.2,
+      "current_stock": 620,
+      "dos_90d": 67.4,
+      "dos_60d": 68.3,
+      "dos_30d": 75.6,
+      "stock_status": "库存积压",
+      "trend_signal": "下降趋势"
+    },
+    {
+      "sku": "家居001",
+      "sku_name": "家居清洁爆款1号",
+      "category": "家居清洁",
+      "qty_90d": 723,
+      "avg_daily_90d": 8.033333333333333,
+      "qty_60d": 476,
+      "avg_daily_60d": 7.933333333333334,
+      "qty_30d": 223,
+      "avg_daily_30d": 7.433333333333334,
+      "current_stock": 2689,
+      "dos_90d": 334.7,
+      "dos_60d": 338.9,
+      "dos_30d": 361.7,
+      "stock_status": "库存积压",
+      "trend_signal": "下降趋势"
+    },
+    {
+      "sku": "家居005",
+      "sku_name": "家居清洁爆款5号",
+      "category": "家居清洁",
+      "qty_90d": 782,
+      "avg_daily_90d": 8.688888888888888,
+      "qty_60d": 479,
+      "avg_daily_60d": 7.983333333333333,
+      "qty_30d": 234,
+      "avg_daily_30d": 7.8,
+      "current_stock": 2945,
+      "dos_90d": 338.9,
+      "dos_60d": 368.9,
+      "dos_30d": 377.6,
+      "stock_status": "库存积压",
+      "trend_signal": "下降趋势"
+    },
+    {
+      "sku": "家居002",
+      "sku_name": "家居清洁爆款2号",
+      "category": "家居清洁",
+      "qty_90d": 939,
+      "avg_daily_90d": 10.433333333333334,
+      "qty_60d": 638,
+      "avg_daily_60d": 10.633333333333333,
+      "qty_30d": 325,
+      "avg_daily_30d": 10.833333333333334,
+      "current_stock": 4744,
+      "dos_90d": 454.7,
+      "dos_60d": 446.1,
+      "dos_30d": 437.9,
+      "stock_status": "库存积压",
+      "trend_signal": "上升趋势"
+    },
+    {
+      "sku": "家居004",
+      "sku_name": "家居清洁爆款4号",
+      "category": "家居清洁",
+      "qty_90d": 804,
+      "avg_daily_90d": 8.933333333333334,
+      "qty_60d": 531,
+      "avg_daily_60d": 8.85,
+      "qty_30d": 267,
+      "avg_daily_30d": 8.9,
+      "current_stock": 4077,
+      "dos_90d": 456.4,
+      "dos_60d": 460.7,
+      "dos_30d": 458.1,
+      "stock_status": "库存积压",
+      "trend_signal": "趋势平稳"
+    },
+    {
+      "sku": "家居006",
+      "sku_name": "家居清洁爆款6号",
+      "category": "家居清洁",
+      "qty_90d": 836,
+      "avg_daily_90d": 9.28888888888889,
+      "qty_60d": 591,
+      "avg_daily_60d": 9.85,
+      "qty_30d": 301,
+      "avg_daily_30d": 10.033333333333333,
+      "current_stock": 5257,
+      "dos_90d": 565.9,
+      "dos_60d": 533.7,
+      "dos_30d": 524.0,
+      "stock_status": "库存积压",
+      "trend_signal": "上升趋势"
+    },
+    {
+      "sku": "家用005",
+      "sku_name": "家用电器爆款5号",
+      "category": "家用电器",
+      "qty_90d": 429,
+      "avg_daily_90d": 4.766666666666667,
+      "qty_60d": 270,
+      "avg_daily_60d": 4.5,
+      "qty_30d": 148,
+      "avg_daily_30d": 4.933333333333334,
+      "current_stock": 1016,
+      "dos_90d": 213.1,
+      "dos_60d": 225.8,
+      "dos_30d": 205.9,
+      "stock_status": "库存积压",
+      "trend_signal": "趋势平稳"
+    },
+    {
+      "sku": "家用003",
+      "sku_name": "家用电器爆款3号",
+      "category": "家用电器",
+      "qty_90d": 392,
+      "avg_daily_90d": 4.355555555555555,
+      "qty_60d": 281,
+      "avg_daily_60d": 4.683333333333334,
+      "qty_30d": 137,
+      "avg_daily_30d": 4.566666666666666,
+      "current_stock": 1530,
+      "dos_90d": 351.3,
+      "dos_60d": 326.7,
+      "dos_30d": 335.0,
+      "stock_status": "库存积压",
+      "trend_signal": "趋势平稳"
+    },
+    {
+      "sku": "家用002",
+      "sku_name": "家用电器爆款2号",
+      "category": "家用电器",
+      "qty_90d": 467,
+      "avg_daily_90d": 5.188888888888889,
+      "qty_60d": 309,
+      "avg_daily_60d": 5.15,
+      "qty_30d": 156,
+      "avg_daily_30d": 5.2,
+      "current_stock": 2200,
+      "dos_90d": 424.0,
+      "dos_60d": 427.2,
+      "dos_30d": 423.1,
+      "stock_status": "库存积压",
+      "trend_signal": "趋势平稳"
+    },
+    {
+      "sku": "家用006",
+      "sku_name": "家用电器爆款6号",
+      "category": "家用电器",
+      "qty_90d": 471,
+      "avg_daily_90d": 5.233333333333333,
+      "qty_60d": 311,
+      "avg_daily_60d": 5.183333333333334,
+      "qty_30d": 127,
+      "avg_daily_30d": 4.233333333333333,
+      "current_stock": 2450,
+      "dos_90d": 468.2,
+      "dos_60d": 472.7,
+      "dos_30d": 578.7,
+      "stock_status": "库存积压",
+      "trend_signal": "下降趋势"
+    },
+    {
+      "sku": "家用004",
+      "sku_name": "家用电器爆款4号",
+      "category": "家用电器",
+      "qty_90d": 440,
+      "avg_daily_90d": 4.888888888888889,
+      "qty_60d": 300,
+      "avg_daily_60d": 5.0,
+      "qty_30d": 153,
+      "avg_daily_30d": 5.1,
+      "current_stock": 3046,
+      "dos_90d": 623.0,
+      "dos_60d": 609.2,
+      "dos_30d": 597.3,
+      "stock_status": "库存积压",
+      "trend_signal": "上升趋势"
+    },
+    {
+      "sku": "家用001",
+      "sku_name": "家用电器爆款1号",
+      "category": "家用电器",
+      "qty_90d": 411,
+      "avg_daily_90d": 4.566666666666666,
+      "qty_60d": 268,
+      "avg_daily_60d": 4.466666666666667,
+      "qty_30d": 134,
+      "avg_daily_30d": 4.466666666666667,
+      "current_stock": 4473,
+      "dos_90d": 979.5,
+      "dos_60d": 1001.4,
+      "dos_30d": 1001.4,
+      "stock_status": "库存积压",
+      "trend_signal": "趋势平稳"
+    },
+    {
+      "sku": "手机005",
+      "sku_name": "手机数码爆款5号",
+      "category": "手机数码",
+      "qty_90d": 706,
+      "avg_daily_90d": 7.844444444444444,
+      "qty_60d": 460,
+      "avg_daily_60d": 7.666666666666667,
+      "qty_30d": 242,
+      "avg_daily_30d": 8.066666666666666,
+      "current_stock": 1984,
+      "dos_90d": 252.9,
+      "dos_60d": 258.8,
+      "dos_30d": 246.0,
+      "stock_status": "库存积压",
+      "trend_signal": "趋势平稳"
+    },
+    {
+      "sku": "手机002",
+      "sku_name": "手机数码爆款2号",
+      "category": "手机数码",
+      "qty_90d": 655,
+      "avg_daily_90d": 7.277777777777778,
+      "qty_60d": 427,
+      "avg_daily_60d": 7.116666666666666,
+      "qty_30d": 246,
+      "avg_daily_30d": 8.2,
+      "current_stock": 2243,
+      "dos_90d": 308.2,
+      "dos_60d": 315.2,
+      "dos_30d": 273.5,
+      "stock_status": "库存积压",
+      "trend_signal": "趋势平稳"
+    },
+    {
+      "sku": "手机001",
+      "sku_name": "手机数码爆款1号",
+      "category": "手机数码",
+      "qty_90d": 650,
+      "avg_daily_90d": 7.222222222222222,
+      "qty_60d": 420,
+      "avg_daily_60d": 7.0,
+      "qty_30d": 235,
+      "avg_daily_30d": 7.833333333333333,
+      "current_stock": 2645,
+      "dos_90d": 366.2,
+      "dos_60d": 377.9,
+      "dos_30d": 337.7,
+      "stock_status": "库存积压",
+      "trend_signal": "趋势平稳"
+    },
+    {
+      "sku": "手机003",
+      "sku_name": "手机数码爆款3号",
+      "category": "手机数码",
+      "qty_90d": 684,
+      "avg_daily_90d": 7.6,
+      "qty_60d": 440,
+      "avg_daily_60d": 7.333333333333333,
+      "qty_30d": 236,
+      "avg_daily_30d": 7.866666666666666,
+      "current_stock": 2800,
+      "dos_90d": 368.4,
+      "dos_60d": 381.8,
+      "dos_30d": 355.9,
+      "stock_status": "库存积压",
+      "trend_signal": "趋势平稳"
+    },
+    {
+      "sku": "手机006",
+      "sku_name": "手机数码爆款6号",
+      "category": "手机数码",
+      "qty_90d": 750,
+      "avg_daily_90d": 8.333333333333334,
+      "qty_60d": 482,
+      "avg_daily_60d": 8.033333333333333,
+      "qty_30d": 222,
+      "avg_daily_30d": 7.4,
+      "current_stock": 3319,
+      "dos_90d": 398.3,
+      "dos_60d": 413.2,
+      "dos_30d": 448.5,
+      "stock_status": "库存积压",
+      "trend_signal": "下降趋势"
+    },
+    {
+      "sku": "手机004",
+      "sku_name": "手机数码爆款4号",
+      "category": "手机数码",
+      "qty_90d": 565,
+      "avg_daily_90d": 6.277777777777778,
+      "qty_60d": 348,
+      "avg_daily_60d": 5.8,
+      "qty_30d": 181,
+      "avg_daily_30d": 6.033333333333333,
+      "current_stock": 4444,
+      "dos_90d": 707.9,
+      "dos_60d": 766.2,
+      "dos_30d": 736.6,
+      "stock_status": "库存积压",
+      "trend_signal": "趋势平稳"
+    },
+    {
+      "sku": "母婴005",
+      "sku_name": "母婴用品爆款5号",
+      "category": "母婴用品",
+      "qty_90d": 496,
+      "avg_daily_90d": 5.511111111111111,
+      "qty_60d": 302,
+      "avg_daily_60d": 5.033333333333333,
+      "qty_30d": 136,
+      "avg_daily_30d": 4.533333333333333,
+      "current_stock": 559,
+      "dos_90d": 101.4,
+      "dos_60d": 111.1,
+      "dos_30d": 123.3,
+      "stock_status": "库存积压",
+      "trend_signal": "下降趋势"
+    },
+    {
+      "sku": "母婴001",
+      "sku_name": "母婴用品爆款1号",
+      "category": "母婴用品",
+      "qty_90d": 561,
+      "avg_daily_90d": 6.233333333333333,
+      "qty_60d": 379,
+      "avg_daily_60d": 6.316666666666666,
+      "qty_30d": 169,
+      "avg_daily_30d": 5.633333333333334,
+      "current_stock": 1397,
+      "dos_90d": 224.1,
+      "dos_60d": 221.2,
+      "dos_30d": 248.0,
+      "stock_status": "库存积压",
+      "trend_signal": "趋势平稳"
+    },
+    {
+      "sku": "母婴002",
+      "sku_name": "母婴用品爆款2号",
+      "category": "母婴用品",
+      "qty_90d": 509,
+      "avg_daily_90d": 5.655555555555556,
+      "qty_60d": 323,
+      "avg_daily_60d": 5.383333333333334,
+      "qty_30d": 165,
+      "avg_daily_30d": 5.5,
+      "current_stock": 2923,
+      "dos_90d": 516.8,
+      "dos_60d": 543.0,
+      "dos_30d": 531.5,
+      "stock_status": "库存积压",
+      "trend_signal": "趋势平稳"
+    },
+    {
+      "sku": "母婴003",
+      "sku_name": "母婴用品爆款3号",
+      "category": "母婴用品",
+      "qty_90d": 571,
+      "avg_daily_90d": 6.344444444444444,
+      "qty_60d": 355,
+      "avg_daily_60d": 5.916666666666667,
+      "qty_30d": 178,
+      "avg_daily_30d": 5.933333333333334,
+      "current_stock": 4280,
+      "dos_90d": 674.6,
+      "dos_60d": 723.4,
+      "dos_30d": 721.3,
+      "stock_status": "库存积压",
+      "trend_signal": "趋势平稳"
+    },
+    {
+      "sku": "母婴004",
+      "sku_name": "母婴用品爆款4号",
+      "category": "母婴用品",
+      "qty_90d": 524,
+      "avg_daily_90d": 5.822222222222222,
+      "qty_60d": 373,
+      "avg_daily_60d": 6.216666666666667,
+      "qty_30d": 189,
+      "avg_daily_30d": 6.3,
+      "current_stock": 5005,
+      "dos_90d": 859.6,
+      "dos_60d": 805.1,
+      "dos_30d": 794.4,
+      "stock_status": "库存积压",
+      "trend_signal": "上升趋势"
+    },
+    {
+      "sku": "母婴006",
+      "sku_name": "母婴用品爆款6号",
+      "category": "母婴用品",
+      "qty_90d": 514,
+      "avg_daily_90d": 5.711111111111111,
+      "qty_60d": 345,
+      "avg_daily_60d": 5.75,
+      "qty_30d": 167,
+      "avg_daily_30d": 5.566666666666666,
+      "current_stock": 4638,
+      "dos_90d": 812.1,
+      "dos_60d": 806.6,
+      "dos_30d": 833.2,
+      "stock_status": "库存积压",
+      "trend_signal": "趋势平稳"
+    },
+    {
+      "sku": "食品003",
+      "sku_name": "食品饮料爆款3号",
+      "category": "食品饮料",
+      "qty_90d": 1348,
+      "avg_daily_90d": 14.977777777777778,
+      "qty_60d": 946,
+      "avg_daily_60d": 15.766666666666667,
+      "qty_30d": 515,
+      "avg_daily_30d": 17.166666666666668,
+      "current_stock": 763,
+      "dos_90d": 50.9,
+      "dos_60d": 48.4,
+      "dos_30d": 44.4,
+      "stock_status": "库存积压",
+      "trend_signal": "上升趋势"
+    },
+    {
+      "sku": "食品005",
+      "sku_name": "食品饮料爆款5号",
+      "category": "食品饮料",
+      "qty_90d": 1304,
+      "avg_daily_90d": 14.488888888888889,
+      "qty_60d": 843,
+      "avg_daily_60d": 14.05,
+      "qty_30d": 407,
+      "avg_daily_30d": 13.566666666666666,
+      "current_stock": 854,
+      "dos_90d": 58.9,
+      "dos_60d": 60.8,
+      "dos_30d": 62.9,
+      "stock_status": "库存积压",
+      "trend_signal": "下降趋势"
+    },
+    {
+      "sku": "食品004",
+      "sku_name": "食品饮料爆款4号",
+      "category": "食品饮料",
+      "qty_90d": 1411,
+      "avg_daily_90d": 15.677777777777777,
+      "qty_60d": 937,
+      "avg_daily_60d": 15.616666666666667,
+      "qty_30d": 523,
+      "avg_daily_30d": 17.433333333333334,
+      "current_stock": 1797,
+      "dos_90d": 114.6,
+      "dos_60d": 115.1,
+      "dos_30d": 103.1,
+      "stock_status": "库存积压",
+      "trend_signal": "趋势平稳"
+    },
+    {
+      "sku": "食品002",
+      "sku_name": "食品饮料爆款2号",
+      "category": "食品饮料",
+      "qty_90d": 1324,
+      "avg_daily_90d": 14.71111111111111,
+      "qty_60d": 858,
+      "avg_daily_60d": 14.3,
+      "qty_30d": 425,
+      "avg_daily_30d": 14.166666666666666,
+      "current_stock": 1488,
+      "dos_90d": 101.1,
+      "dos_60d": 104.1,
+      "dos_30d": 105.0,
+      "stock_status": "库存积压",
+      "trend_signal": "下降趋势"
+    },
+    {
+      "sku": "食品006",
+      "sku_name": "食品饮料爆款6号",
+      "category": "食品饮料",
+      "qty_90d": 1398,
+      "avg_daily_90d": 15.533333333333333,
+      "qty_60d": 861,
+      "avg_daily_60d": 14.35,
+      "qty_30d": 380,
+      "avg_daily_30d": 12.666666666666666,
+      "current_stock": 2357,
+      "dos_90d": 151.7,
+      "dos_60d": 164.3,
+      "dos_30d": 186.1,
+      "stock_status": "库存积压",
+      "trend_signal": "下降趋势"
+    },
+    {
+      "sku": "食品001",
+      "sku_name": "食品饮料爆款1号",
+      "category": "食品饮料",
+      "qty_90d": 1282,
+      "avg_daily_90d": 14.244444444444444,
+      "qty_60d": 861,
+      "avg_daily_60d": 14.35,
+      "qty_30d": 403,
+      "avg_daily_30d": 13.433333333333334,
+      "current_stock": 5223,
+      "dos_90d": 366.7,
+      "dos_60d": 364.0,
+      "dos_30d": 388.8,
+      "stock_status": "库存积压",
+      "trend_signal": "趋势平稳"
+    }
+  ]
+};
+
+// ================== UTILS ==================
+function showSection(id){
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  event.currentTarget.classList.add('active');
+  const titles={home:'项目概览',trend:'销售趋势分析',supplier:'供应商绩效评估',inventory:'库存健康诊断'};
+  document.getElementById('page-title').textContent=titles[id];
+}
+
+function toggleSql(header){
+  const content=header.nextElementSibling;
+  const toggle=header.querySelector('.sql-toggle');
+  content.classList.toggle('open');
+  toggle.textContent=content.classList.contains('open')?'收起':'展开';
+}
+
+function copySql(btn){
+  const pre=btn.parentElement.querySelector('pre');
+  navigator.clipboard.writeText(pre.textContent).then(()=>{btn.textContent='已复制';setTimeout(()=>btn.textContent='复制',2000);});
+}
+
+// ================== INIT ==================
+const q3t=DATA.q3CategoryTrend, skuQ3=DATA.skuQ3Sales, sup=DATA.supplierPerformance, inv=DATA.inventoryDashboard;
+
+// Home stats
+document.getElementById('home-sku-count').textContent=skuQ3.length+' 个';
+document.getElementById('home-total-gmv').textContent='\u00a5'+(skuQ3.reduce((s,i)=>s+i.q3_gmv,0)/10000).toFixed(1)+'万';
+document.getElementById('home-supplier-count').textContent=sup.length+' 家';
+document.getElementById('home-avg-dos').textContent=(inv.reduce((s,i)=>s+i.dos_30d,0)/inv.length).toFixed(0)+' 天';
+
+// Trend: TOP 10 table
+const top10=[...skuQ3].sort((a,b)=>b.q3_gmv-a.q3_gmv).slice(0,10);
+document.querySelector('#table-top-sku tbody').innerHTML=top10.map((s,i)=>`<tr><td>${i+1}</td><td>${s.sku}</td><td>${s.sku_name}</td><td><span class="badge badge-slate">${s.category}</span></td><td class="num">${s.q3_qty.toLocaleString()}</td><td class="num">\u00a5${(s.q3_gmv/10000).toFixed(1)}万</td></tr>`).join('');
+
+// Supplier: TOP 3 cards
+const sColors=['border-amber-300','border-slate-200','border-slate-200'];
+const sLabels=['战略供应商','核心供应商','核心供应商'];
+const sBg=['bg-amber-50 text-amber-700','bg-slate-50 text-slate-700','bg-slate-50 text-slate-700'];
+document.getElementById('supplier-top3').innerHTML=sup.slice(0,3).map((s,i)=>`<div class="card" style="border:1px solid ${i===0?'#fcd34d':'#e5e7eb'}"><div style="display:flex;justify-content:space-between;margin-bottom:12px"><span style="font-size:24px">${['\u{1F947}','\u{1F948}','\u{1F949}'][i]}</span><span class="badge ${sBg[i]}" style="border:1px solid ${i===0?'#fcd34d':'#e5e7eb'}">${sLabels[i]}</span></div><div style="font-size:18px;font-weight:700">供应商 ${s.supplier_id}</div><div style="font-size:36px;font-weight:700;margin:8px 0">${s.composite_score}</div><div style="font-size:13px;color:#64748b;space-y:4px"><div style="display:flex;justify-content:space-between;padding:4px 0"><span>准时率</span><span>${s.on_time_rate}%</span></div><div style="display:flex;justify-content:space-between;padding:4px 0"><span>良品率</span><span>${s.quality_rate}%</span></div><div style="display:flex;justify-content:space-between;padding:4px 0"><span>GMV占比</span><span>${s.gmv_share_pct}%</span></div><div style="display:flex;justify-content:space-between;padding:4px 0"><span>供应SKU</span><span>${s.sku_count}个</span></div><div style="display:flex;justify-content:space-between;padding:4px 0"><span>订单数</span><span>${s.total_orders}笔</span></div></div></div>`).join('');
+
+// Supplier: full table
+document.querySelector('#table-supplier tbody').innerHTML=sup.map((s,i)=>`<tr><td>${i+1}</td><td><strong>供应商 ${s.supplier_id}</strong></td><td class="num">${s.sku_count}</td><td class="num">${s.total_orders}</td><td class="num">${s.on_time_rate}%</td><td class="num">${s.quality_rate}%</td><td class="num">\u00a5${(s.q3_gmv/10000).toFixed(1)}万</td><td class="num">${s.gmv_share_pct}%</td><td class="num" style="color:#2563eb;font-weight:700">${s.composite_score}</td></tr>`).join('');
+
+// Inventory: status cards
+const stCfg={'库存积压':{l:'库存积压',c:'badge-red',i:'\u274c'},'库存健康':{l:'库存健康',c:'badge-green',i:'\u2714'},'库存不足':{l:'库存不足',c:'badge-amber',i:'\u26a0'},'滞销(有库无销)':{l:'滞销',c:'badge-purple',i:'\u274c'},'断货(无库无销)':{l:'断货',c:'badge-slate',i:'\u274c'}};
+const statusCounts={};inv.forEach(i=>statusCounts[i.stock_status]=(statusCounts[i.stock_status]||0)+1);
+document.getElementById('inventory-status-cards').innerHTML=Object.entries(statusCounts).map(([k,v])=>{const c=stCfg[k]||stCfg['库存积压'];return`<div class="card"><div style="font-size:28px;margin-bottom:8px">${c.i}</div><div style="font-size:32px;font-weight:700">${v}</div><span class="badge ${c.c}">${c.l}</span><div style="font-size:12px;color:#94a3b8;margin-top:4px">${(v/inv.length*100).toFixed(0)}% 的SKU</div></div>`;}).join('');
+
+// Inventory: table
+const ac={'库存不足':'紧急补货','库存积压':'暂停采购+促销','滞销(有库无销)':'清仓处理','断货(无库无销)':'排查下架','库存健康':'维持现状'};
+const trCfg={'上升趋势':{l:'上升',c:'text-green-600'},'下降趋势':{l:'下降',c:'text-red-600'},'趋势平稳':{l:'平稳',c:'text-slate-500'}};
+document.querySelector('#table-inventory tbody').innerHTML=inv.map(i=>{const s=stCfg[i.stock_status]||stCfg['库存积压'];const t=trCfg[i.trend_signal]||trCfg['趋势平稳'];let a=ac[i.stock_status]||'维持现状';if(i.stock_status==='库存不足'&&i.trend_signal==='下降趋势')a='谨慎补货';return`<tr><td class="font-mono text-xs">${i.sku}</td><td><span class="badge badge-slate">${i.category}</span></td><td class="num">${i.qty_30d}</td><td class="num">${i.avg_daily_30d.toFixed(1)}</td><td class="num">${i.current_stock.toLocaleString()}</td><td class="num font-medium">${i.dos_30d.toFixed(1)}</td><td><span class="badge ${s.c}">${s.l}</span></td><td class="${t.c}">${t.l}</td><td class="text-xs">${a}</td></tr>`;}).join('');
+
+// ================== ECHARTS ==================
+const catColors={'家居清洁':'#3b82f6','家用电器':'#10b981','手机数码':'#f59e0b','母婴用品':'#ef4444','食品饮料':'#8b5cf6'};
+
+// Trend Bar
+const cats=[...new Set(q3t.map(d=>d.category))],mons=[...new Set(q3t.map(d=>d.month))].sort();
+const barSeries=mons.map((m,idx)=>({name:m,type:'bar',data:cats.map(c=>{const item=q3t.find(d=>d.category===c&&d.month===m);return item?item.total_gmv/10000:0;}),itemStyle:{borderRadius:[4,4,0,0]},color:['#3b82f6','#10b981','#f59e0b'][idx]}));
+echarts.init(document.getElementById('chart-trend-bar')).setOption({tooltip:{trigger:'axis',formatter:p=>p.map(i=>`${i.marker} ${i.seriesName}: ${i.value.toFixed(1)}万`).join('<br>')},legend:{data:mons},grid:{left:'3%',right:'4%',bottom:'3%',containLabel:true},xAxis:{type:'category',data:cats,axisLabel:{fontSize:11}},yAxis:{type:'value',name:'万元',axisLabel:{formatter:v=>v.toFixed(0)}},series:barSeries});
+
+// Trend Line
+const lineSeries=cats.map(c=>({name:c,type:'line',data:mons.map(m=>{const item=q3t.find(d=>d.category===c&&d.month===m);return item?item.total_gmv/10000:0;}),smooth:true,symbolSize:6,lineStyle:{width:2},color:catColors[c]}));
+echarts.init(document.getElementById('chart-trend-line')).setOption({tooltip:{trigger:'axis',formatter:p=>p.map(i=>`${i.marker} ${i.seriesName}: ${i.value.toFixed(1)}万`).join('<br>')},legend:{data:cats},grid:{left:'3%',right:'4%',bottom:'3%',containLabel:true},xAxis:{type:'category',data:mons},yAxis:{type:'value',name:'万元'},series:lineSeries});
+
+// Supplier Bar
+echarts.init(document.getElementById('chart-supplier-bar')).setOption({tooltip:{trigger:'axis',formatter:'{b}: {c}分'},grid:{left:'3%',right:'8%',bottom:'3%',containLabel:true},xAxis:{type:'value',max:100},yAxis:{type:'category',data:sup.map(s=>`供应商${s.supplier_id}`).reverse(),axisLabel:{fontSize:12}},series:[{type:'bar',data:sup.map(s=>s.composite_score).reverse(),itemStyle:{borderRadius:[0,4,4,0],color:(p)=>p.dataIndex===sup.length-1?'#f59e0b':p.dataIndex===sup.length-2?'#3b82f6':p.dataIndex===sup.length-3?'#10b981':'#94a3b8'},barWidth:24,label:{show:true,position:'right',formatter:'{c}'}}]});
+
+// Supplier Radar
+const radarMetrics=['准时率','良品率','GMV占比','综合得分'];
+const radarData=sup.slice(0,3).map((s,idx)=>({name:`供应商${s.supplier_id}`,value:[s.on_time_rate,s.quality_rate,s.gmv_share_pct,s.composite_score],itemStyle:{color:['#3b82f6','#10b981','#f59e0b'][idx]},areaStyle:{opacity:.1}}));
+echarts.init(document.getElementById('chart-supplier-radar')).setOption({tooltip:{},legend:{data:radarData.map(d=>d.name)},radar:{indicator:radarMetrics.map(m=>({name:m,max:100})),radius:'65%'},series:[{type:'radar',data:radarData}]});
+
+// Inventory Scatter
+const scatterData=inv.map(i=>({value:[i.avg_daily_30d,i.dos_30d,i.current_stock],name:i.sku,category:i.category}));
+echarts.init(document.getElementById('chart-inventory-scatter')).setOption({tooltip:{formatter:p=>{const d=p.data;return`<b>${d.name}</b><br>日均销量: ${d.value[0].toFixed(1)}件<br>可售天数: ${d.value[1].toFixed(1)}天<br>库存: ${d.value[2].toLocaleString()}件`;}},grid:{left:'3%',right:'8%',bottom:'3%',containLabel:true},xAxis:{type:'value',name:'日均销量(件)',nameLocation:'middle',nameGap:25},yAxis:{type:'value',name:'可售天数(天)'},series:[{type:'scatter',data:scatterData,symbolSize:(d)=>Math.sqrt(d[2])/2,itemStyle:{color:(p)=>catColors[p.data.category]||'#94a3b8',opacity:.7}}]});
+
+// Inventory Pie
+echarts.init(document.getElementById('chart-inventory-pie')).setOption({tooltip:{trigger:'item',formatter:'{b}: {c}个 ({d}%)'},legend:{bottom:0},series:[{type:'pie',radius:['40%','70%'],data:Object.entries(statusCounts).map(([k,v])=>({name:k,value:v})),itemStyle:{borderRadius:6,borderColor:'#fff',borderWidth:2},label:{formatter:'{b}
+{d}%'},color:['#ef4444','#10b981','#f59e0b','#8b5cf6','#64748b']}]});
+</script>
+</body>
+</html>
